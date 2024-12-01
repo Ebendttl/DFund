@@ -1,4 +1,4 @@
-# Decentralized Crowdfunding Platform 🚀💰
+# Decentralized Crowdfunding Platform (DFund) 🚀💰
 
 ## Overview
 

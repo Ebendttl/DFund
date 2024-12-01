@@ -116,3 +116,25 @@
     (ok (get current-amount campaign))
   )
 )
+
+;; Refund mechanism with error handling
+(define-public (refund (campaign-id uint))
+  (let 
+    (
+      (campaign (unwrap! (map-get? campaigns { campaign-id: campaign-id }) ERR-CAMPAIGN-NOT-FOUND))
+      (contribution (unwrap! (map-get? contributions { campaign-id: campaign-id, contributor: tx-sender }) ERR-INSUFFICIENT-FUNDS))
+    )
+    
+    ;; Validate refund conditions
+    (asserts! (< (get current-amount campaign) (get goal-amount campaign)) ERR-CAMPAIGN-INACTIVE)
+    (asserts! (>= block-height (get deadline campaign)) ERR-CAMPAIGN-INACTIVE)
+    
+    ;; Safe refund transfer
+    (try! (as-contract (stx-transfer? (get amount contribution) tx-sender tx-sender)))
+    
+    ;; Clear contribution
+    (map-delete contributions { campaign-id: campaign-id, contributor: tx-sender })
+    
+    (ok (get amount contribution))
+  )
+)

@@ -1,7 +1,10 @@
 import Link from 'next/link';
-import { Campaign } from '@/lib/api';
+import { Campaign, getCreatorStats } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Wallet, Clock, Target, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CreatorStats, calculateCreatorScore, getReputationBadge, calculateCampaignRisk } from '@/lib/reputation';
+import TrustBadge from './TrustBadge';
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -9,6 +12,14 @@ interface CampaignCardProps {
 }
 
 export default function CampaignCard({ campaign, currentBlockHeight }: CampaignCardProps) {
+  const [stats, setStats] = useState<CreatorStats | null>(null);
+
+  useEffect(() => {
+    getCreatorStats(campaign.creator).then(data => {
+      if (data) setStats(data);
+    });
+  }, [campaign.creator]);
+
   const progress = (campaign.currentAmount / campaign.goalAmount) * 100;
   const isSuccessful = campaign.currentAmount >= campaign.goalAmount;
   const isExpired = currentBlockHeight >= campaign.deadline;
@@ -27,16 +38,29 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
     statusColor = 'bg-gray-400';
   }
 
+  const score = calculateCreatorScore(stats || undefined);
+  const { badge, colorClass: badgeColor, textClass: badgeText } = getReputationBadge(score);
+
   return (
     <div className="brutal-card group flex flex-col h-full bg-white transition-transform hover:-translate-x-1 hover:-translate-y-1">
-      <div className="relative mb-6 h-48 w-full overflow-hidden rounded-xl border-4 border-black">
+      <div className="relative mb-6 h-48 w-full overflow-hidden rounded-xl border-4 border-black bg-gray-200">
         <img 
           src={campaign.image} 
           alt={campaign.title} 
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
-        <div className={cn("absolute left-4 top-4 rounded-full border-2 border-black px-4 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", statusColor)}>
-          {status}
+        <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
+          <div className={cn("rounded-full border-2 border-black px-4 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", statusColor)}>
+            {status}
+          </div>
+          {stats && (
+            <TrustBadge 
+              badge={badge} 
+              score={score} 
+              colorClass={badgeColor} 
+              textClass={badgeText} 
+            />
+          )}
         </div>
       </div>
 
@@ -47,7 +71,6 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
         </p>
 
         <div className="mt-auto space-y-4">
-          {/* Progress Section */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-black uppercase">
               <span className="flex items-center gap-1">
@@ -75,7 +98,7 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
               <span className="text-[10px] font-black uppercase text-gray-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Deadline
               </span>
-              <p className="font-black">{campaign.deadline} Blks</p>
+              <p className="font-black">{campaign.deadline} Blk</p>
             </div>
           </div>
 

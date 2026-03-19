@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Coins } from 'lucide-react';
+import { X, Coins, AlertTriangle } from 'lucide-react';
 import { contribute } from '@/lib/transactions';
 import { useStore } from '@/store/useStore';
 import toast from 'react-hot-toast';
@@ -10,11 +10,13 @@ interface ContributeModalProps {
   campaignId: number;
   isOpen: boolean;
   onClose: () => void;
+  isHighRisk: boolean;
 }
 
-export default function ContributeModal({ campaignId, isOpen, onClose }: ContributeModalProps) {
+export default function ContributeModal({ campaignId, isOpen, onClose, isHighRisk }: ContributeModalProps) {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmedRisk, setConfirmedRisk] = useState(!isHighRisk); // Automatically confirmed if not high risk
   const { isSignedIn } = useStore();
 
   if (!isOpen) return null;
@@ -23,6 +25,11 @@ export default function ContributeModal({ campaignId, isOpen, onClose }: Contrib
     e.preventDefault();
     if (!isSignedIn) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (isHighRisk && !confirmedRisk) {
+      toast.error('Please acknowledge the risk warning before contributing');
       return;
     }
 
@@ -35,7 +42,6 @@ export default function ContributeModal({ campaignId, isOpen, onClose }: Contrib
     setLoading(true);
     try {
       await contribute(campaignId, numAmount);
-      // Let the transaction handler toast take care of success message
       onClose();
     } catch (error) {
       console.error(error);
@@ -60,6 +66,29 @@ export default function ContributeModal({ campaignId, isOpen, onClose }: Contrib
           Back this Project
         </h2>
 
+        {isHighRisk && (
+          <div className="mb-6 rounded-xl border-4 border-red-500 bg-red-50 p-4">
+            <div className="flex items-center gap-2 mb-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              <span className="font-black uppercase">High Risk Warning</span>
+            </div>
+            <p className="text-sm font-bold text-red-800 mb-3">
+              This campaign has been flagged as high risk based on the creator's history or funding metrics. Your contribution may be at risk.
+            </p>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                className="mt-1 h-4 w-4 rounded-sm border-2 border-black accent-yellow-400"
+                checked={confirmedRisk}
+                onChange={(e) => setConfirmedRisk(e.target.checked)}
+              />
+              <span className="text-xs font-bold text-red-900 leading-tight">
+                I understand the risks and wish to proceed with this contribution.
+              </span>
+            </label>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-black uppercase">Amount (STX)</label>
@@ -78,9 +107,9 @@ export default function ContributeModal({ campaignId, isOpen, onClose }: Contrib
           </div>
 
           <button 
-            disabled={loading}
+            disabled={loading || (isHighRisk && !confirmedRisk)}
             type="submit" 
-            className="brutal-btn brutal-btn-success w-full py-4 text-xl"
+            className="brutal-btn brutal-btn-success w-full py-4 text-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Processing...' : 'Contribute STX'}
           </button>

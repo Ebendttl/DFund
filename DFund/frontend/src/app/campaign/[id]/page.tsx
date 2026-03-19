@@ -1,32 +1,41 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCampaignById, Campaign } from '@/lib/api';
+import { getCampaignById, Campaign, getCreatorStats } from '@/lib/api';
+import { CreatorStats, calculateCreatorScore, getReputationBadge, calculateCampaignRisk } from '@/lib/reputation';
 import { useStore } from '@/store/useStore';
 import { withdrawFunds, claimRefund } from '@/lib/transactions';
 import ContributeModal from '@/components/ContributeModal';
+import CreatorProfileModal from '@/components/CreatorProfileModal';
+import TrustBadge from '@/components/TrustBadge';
+import RiskIndicator from '@/components/RiskIndicator';
 import { Clock, Target, Users, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 export default function CampaignDetailsPage({ params }: { params: { id: string } }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const { userData, isSignedIn } = useStore();
   
   // Mock current block height and user contribution status for demo purposes
   const currentBlockHeight = 145000;
-  // Let's pretend the user has contributed to this specific campaign if they are connected
   const hasContributed = true; 
 
   useEffect(() => {
-    async function fetchCampaign() {
+    async function fetchData() {
       const data = await getCampaignById(parseInt(params.id));
-      if (data) setCampaign(data);
+      if (data) {
+        setCampaign(data);
+        const stats = await getCreatorStats(data.creator);
+        if (stats) setCreatorStats(stats);
+      }
       setLoading(false);
     }
-    fetchCampaign();
+    fetchData();
   }, [params.id]);
 
   if (loading) {
@@ -55,8 +64,20 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
 
   // Dynamic Action Logic
   const canContribute = campaign.isActive && !isExpired;
-  const canWithdraw = isSuccessful && isExpired && isCreator && campaign.isActive; // if isActive is false, it's already withdrawn
+  const canWithdraw = isSuccessful && isExpired && isCreator && campaign.isActive; 
   const canRefund = !isSuccessful && isExpired && hasContributed && campaign.isActive;
+
+  // Reputation Logic
+  const score = calculateCreatorScore(creatorStats || undefined);
+  const { badge, colorClass: badgeColor, textClass: badgeText } = getReputationBadge(score);
+  const { risk, colorClass: riskColor } = calculateCampaignRisk(
+    score, 
+    campaign.currentAmount, 
+    campaign.goalAmount, 
+    campaign.startedAt, 
+    campaign.deadline, 
+    currentBlockHeight
+  );
 
   const handleWithdraw = async () => {
     try {
@@ -111,9 +132,17 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
             {campaign.title}
           </h1>
           
-          <div className="flex items-center gap-4 text-sm font-bold bg-gray-100 p-4 rounded-xl border-4 border-black inline-flex">
+          <div className="flex flex-wrap items-center gap-4 text-sm font-bold bg-gray-100 p-4 rounded-xl border-4 border-black inline-flex">
             <span className="text-gray-500 uppercase">Creator:</span>
             <span className="font-mono text-blue-600">{campaign.creator}</span>
+            <div className="h-6 w-1 bg-gray-300 mx-2 hidden md:block"></div>
+            <TrustBadge 
+              badge={badge} 
+              score={score} 
+              colorClass={badgeColor} 
+              textClass={badgeText} 
+              onClick={() => setIsProfileModalOpen(true)}
+            />
           </div>
         </div>
       </div>
@@ -147,7 +176,11 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
         {/* Action Panel */}
         <div className="space-y-8">
           <div className="brutal-card sticky top-28 bg-yellow-50 border-yellow-400">
-            <div className="mb-8 space-y-2">
+            <div className="mb-6 flex justify-end">
+              <RiskIndicator riskLevel={risk} colorClass={riskColor} />
+            </div>
+
+            <div className="mb-8 space-y-2 border-t-4 border-black pt-6 mt-6">
               <div className="text-5xl font-black text-black">{campaign.currentAmount} <span className="text-2xl text-gray-500">STX</span></div>
               <div className="font-bold uppercase text-gray-500 flex justify-between">
                 <span>Raised of {campaign.goalAmount} STX</span>
@@ -227,6 +260,13 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
         campaignId={campaign.id} 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
+        isHighRisk={risk === 'High Risk'}
+      />
+
+      <CreatorProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        stats={creatorStats}
       />
     </div>
   );

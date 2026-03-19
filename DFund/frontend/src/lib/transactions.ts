@@ -1,6 +1,5 @@
 import { 
   openContractCall, 
-  finished, 
   showConnect 
 } from '@stacks/connect';
 import { 

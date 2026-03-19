@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 240, 240, 240;
+  --background-end-rgb: 240, 240, 240;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Neobrutalist components */
+.brutal-card {
+  @apply rounded-2xl border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+}
+
+.brutal-btn {
+  @apply rounded-xl border-4 border-black font-black uppercase transition-all active:translate-x-[4px] active:translate-y-[4px] active:shadow-none bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)];
+}
+
+.brutal-btn-primary {
+  @apply bg-yellow-400 hover:bg-yellow-500;
+}
+
+.brutal-btn-success {
+  @apply bg-green-400 hover:bg-green-500;
+}
+
+.brutal-btn-error {
+  @apply bg-red-400 hover:bg-red-500;
+}

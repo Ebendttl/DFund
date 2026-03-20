@@ -73,7 +73,7 @@ export default function ContributeModal({ campaignId, isOpen, onClose, isHighRis
               <span className="font-black uppercase">High Risk Warning</span>
             </div>
             <p className="text-sm font-bold text-red-800 mb-3">
-              This campaign has been flagged as high risk based on the creator's history or funding metrics. Your contribution may be at risk.
+              This campaign has been flagged as high risk based on the creator&apos;s history or funding metrics. Your contribution may be at risk.
             </p>
             <label className="flex items-start gap-2 cursor-pointer">
               <input 

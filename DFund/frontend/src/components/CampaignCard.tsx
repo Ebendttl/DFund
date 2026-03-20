@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { Campaign, getCreatorStats } from '@/lib/api';
+import { Campaign } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Wallet, Clock, Target, TrendingUp } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { CreatorStats, calculateCreatorScore, getReputationBadge, calculateCampaignRisk } from '@/lib/reputation';
+import { calculateCreatorScore, getReputationBadge } from '@/lib/reputation';
 import TrustBadge from './TrustBadge';
+import { useCreatorStats } from '@/hooks/useCreatorStats';
 
 interface CampaignCardProps {
   campaign: Campaign;
@@ -12,21 +12,15 @@ interface CampaignCardProps {
 }
 
 export default function CampaignCard({ campaign, currentBlockHeight }: CampaignCardProps) {
-  const [stats, setStats] = useState<CreatorStats | null>(null);
-
-  useEffect(() => {
-    getCreatorStats(campaign.creator).then(data => {
-      if (data) setStats(data);
-    });
-  }, [campaign.creator]);
+  const { data: stats } = useCreatorStats(campaign.creator);
 
   const progress = (campaign.currentAmount / campaign.goalAmount) * 100;
   const isSuccessful = campaign.currentAmount >= campaign.goalAmount;
   const isExpired = currentBlockHeight >= campaign.deadline;
-  
+
   let status = 'Active';
   let statusColor = 'bg-yellow-400';
-  
+
   if (isSuccessful && isExpired) {
     status = 'Successful';
     statusColor = 'bg-green-400';
@@ -38,27 +32,28 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
     statusColor = 'bg-gray-400';
   }
 
-  const score = calculateCreatorScore(stats || undefined);
+  const score = calculateCreatorScore(stats);
   const { badge, colorClass: badgeColor, textClass: badgeText } = getReputationBadge(score);
+
 
   return (
     <div className="brutal-card group flex flex-col h-full bg-white transition-transform hover:-translate-x-1 hover:-translate-y-1">
       <div className="relative mb-6 h-48 w-full overflow-hidden rounded-xl border-4 border-black bg-gray-200">
-        <img 
-          src={campaign.image} 
-          alt={campaign.title} 
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+        <img
+          src={campaign.image}
+          alt={campaign.title}
+          className="h-full"w-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
-          <div className={cn("rounded-full border-2 border-black px-4 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]", statusColor)}>
+          <div className={cn('rounded-full border-2 border-black px-4 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]', statusColor)}>
             {status}
           </div>
           {stats && (
-            <TrustBadge 
-              badge={badge} 
-              score={score} 
-              colorClass={badgeColor} 
-              textClass={badgeText} 
+            <TrustBadge
+              badge={badge}
+              score={score}
+              colorClass={badgeColor}
+              textClass={badgeText}
             />
           )}
         </div>
@@ -80,8 +75,8 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
               <span>{Math.min(Math.round(progress), 100)}%</span>
             </div>
             <div className="h-4 w-full rounded-full border-4 border-black bg-gray-100 overflow-hidden p-[2px]">
-              <div 
-                className={cn("h-full rounded-full border-r-2 border-black transition-all duration-1000", progress >= 100 ? 'bg-green-400' : 'bg-yellow-400')}
+              <div
+                className={cn('h-full rounded-full border-r-2 border-black transition-all duration-1000', progress >= 100 ? 'bg-green-400' : 'bg-yellow-400')}
                 style={{ width: `${Math.min(progress, 100)}%` }}
               />
             </div>
@@ -102,7 +97,7 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
             </div>
           </div>
 
-          <Link 
+          <Link
             href={`/campaign/${campaign.id}`}
             className="brutal-btn brutal-btn-primary block w-full text-center text-sm"
           >

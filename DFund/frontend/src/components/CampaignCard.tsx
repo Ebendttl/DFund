@@ -42,7 +42,7 @@ export default function CampaignCard({ campaign, currentBlockHeight }: CampaignC
         <img
           src={campaign.image}
           alt={campaign.title}
-          className="h-full"w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
           <div className={cn('rounded-full border-2 border-black px-4 py-1 text-xs font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]', statusColor)}>

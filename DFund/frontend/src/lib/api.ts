@@ -1,5 +1,5 @@
 import { CreatorStats } from "./reputation";
-import { callReadOnlyFunction, principalCV, cvToJSON } from '@stacks/transactions';
+import { fetchCallReadOnlyFunction, principalCV, cvToJSON } from '@stacks/transactions';
 import { contractAddress, contractName, network } from './stacks';
 
 export interface Campaign {
@@ -66,7 +66,7 @@ export async function getCampaignById(id: number): Promise<Campaign | undefined>
 
 export async function getCreatorStats(address: string): Promise<CreatorStats> {
   try {
-    const result = await callReadOnlyFunction({
+    const result = await fetchCallReadOnlyFunction({
       contractAddress,
       contractName,
       functionName: 'get-creator-stats',

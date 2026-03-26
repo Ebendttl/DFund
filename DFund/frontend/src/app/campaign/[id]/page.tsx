@@ -171,13 +171,14 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
             {campaign.milestones.map((m, idx) => {
                const isPending = !m.isApproved && !m.isClaimed;
                const threshold = campaign.goalAmount / 2;
-               const progressPct = Math.min((m.approvalAmount / threshold) * 100, 100) || 0;
+               const approvalProgress = Math.min((m.approvedAmount / threshold) * 100, 100) || 0;
+               const rejectionProgress = Math.min((m.rejectedAmount / threshold) * 100, 100) || 0;
 
                return (
                 <div key={m.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                    <div className={cn("flex items-center justify-center w-10 h-10 rounded-full border-4 border-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] z-10", 
-                      m.isClaimed ? "bg-gray-400" : m.isApproved ? "bg-green-400" : "bg-blue-400")}>
-                     {m.isClaimed ? <CheckCircle2 className="w-5 h-5 text-white" /> : <Target className="w-5 h-5 text-white" />}
+                      m.isClaimed ? "bg-gray-400" : m.isApproved ? "bg-green-400" : m.rejectedAmount >= threshold ? "bg-red-500" : "bg-blue-400")}>
+                     {m.isClaimed ? <CheckCircle2 className="w-5 h-5 text-white" /> : m.rejectedAmount >= threshold ? <AlertTriangle className="w-5 h-5 text-white" /> : <Target className="w-5 h-5 text-white" />}
                    </div>
                    
                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] brutal-card bg-white p-4">
@@ -187,24 +188,38 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
                       </div>
                       
                       {!m.isClaimed && (
-                        <div className="mb-4">
-                          <div className="flex justify-between text-xs font-bold uppercase mb-1">
-                             <span>Approval Target: 50%</span>
-                             <span>{m.isApproved ? '100' : Math.round(progressPct)}%</span>
+                        <div className="space-y-2 mb-4">
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] font-black uppercase">
+                               <span>Approval</span>
+                               <span>{m.isApproved ? '100' : Math.round(approvalProgress)}%</span>
+                            </div>
+                            <div className="h-2 w-full border-2 border-black bg-white overflow-hidden">
+                               <div className={cn("h-full transition-all", m.isApproved ? "bg-green-400" : "bg-blue-400")} style={{width: `${m.isApproved ? 100 : approvalProgress}%`}}></div>
+                            </div>
                           </div>
-                          <div className="h-2 w-full bg-gray-200 rounded-full border-2 border-black overflow-hidden bg-white">
-                             <div className={cn("h-full transition-all", m.isApproved ? "bg-green-400" : "bg-blue-400")} style={{width: `${m.isApproved ? 100 : progressPct}%`}}></div>
-                          </div>
+                          
+                          {m.rejectedAmount > 0 && (
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] font-black uppercase text-red-500">
+                                 <span>Rejection Threshold</span>
+                                 <span>{Math.round(rejectionProgress)}%</span>
+                              </div>
+                              <div className="h-2 w-full border-2 border-black bg-white overflow-hidden">
+                                 <div className="h-full bg-red-400 transition-all" style={{width: `${rejectionProgress}%`}}></div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
                       <div className="flex gap-2 mt-4">
-                         {isCreator && m.isApproved && !m.isClaimed && (
+                         {isCreator && m.isApproved && !m.isClaimed && campaign.isActive && (
                            <button onClick={() => handleClaimMilestone(m.id)} className="text-sm px-3 py-1 bg-green-400 font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform">
                              Claim Funds
                            </button>
                          )}
-                         {hasContributed && isPending && !isCreator && progress >= 100 && (
+                         {hasContributed && isPending && !isCreator && progress >= 100 && campaign.isActive && (
                            <>
                              <button onClick={() => handleVote(m.id, true)} className="text-sm px-3 py-1 bg-blue-400 font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform">
                                Approve
@@ -220,10 +235,14 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
                          {m.isApproved && !m.isClaimed && !isCreator && (
                            <span className="text-sm font-black uppercase text-green-500">Milestone Approved</span>
                          )}
+                         {m.rejectedAmount >= threshold && (
+                           <span className="text-sm font-black uppercase text-red-500">Milestone Rejected</span>
+                         )}
                       </div>
                    </div>
                 </div>
                )
+
             })}
           </div>
         </div>

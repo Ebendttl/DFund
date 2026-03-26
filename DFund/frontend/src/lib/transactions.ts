@@ -6,7 +6,10 @@ import {
   AnchorMode, 
   PostConditionMode, 
   uintCV,
-  stringUtf8CV,
+  stringAsciiCV,
+  listCV,
+  tupleCV,
+  boolCV,
   principalCV
 } from '@stacks/transactions';
 import { 
@@ -17,14 +20,20 @@ import {
 } from './stacks';
 import toast from 'react-hot-toast';
 
-export const createCampaign = async (goalAmount: number, deadline: number) => {
+export const createCampaign = async (goalAmount: number, deadline: number, milestones: { amount: number, description: string }[]) => {
+  const milestoneList = listCV(milestones.map(m => tupleCV({
+    amount: uintCV(m.amount),
+    description: stringAsciiCV(m.description)
+  })));
+
   const options = {
     contractAddress,
     contractName,
     functionName: 'create-campaign',
     functionArgs: [
       uintCV(goalAmount),
-      uintCV(deadline)
+      uintCV(deadline),
+      milestoneList
     ],
     network,
     appDetails: {
@@ -65,17 +74,37 @@ export const contribute = async (campaignId: number, amount: number) => {
   await openContractCall(options);
 };
 
-export const withdrawFunds = async (campaignId: number) => {
+export const voteMilestone = async (campaignId: number, milestoneId: number, approve: boolean) => {
   const options = {
     contractAddress,
     contractName,
-    functionName: 'withdraw-funds',
+    functionName: 'vote-milestone',
     functionArgs: [
-      uintCV(campaignId)
+      uintCV(campaignId),
+      uintCV(milestoneId),
+      boolCV(approve)
     ],
     network,
     onFinish: (data: any) => {
-      toast.success('Withdrawal broadcasted!');
+      toast.success('Vote broadcasted!');
+    },
+  };
+
+  await openContractCall(options);
+};
+
+export const claimMilestone = async (campaignId: number, milestoneId: number) => {
+  const options = {
+    contractAddress,
+    contractName,
+    functionName: 'claim-milestone',
+    functionArgs: [
+      uintCV(campaignId),
+      uintCV(milestoneId)
+    ],
+    network,
+    onFinish: (data: any) => {
+      toast.success('Milestone claim broadcasted!');
     },
   };
 

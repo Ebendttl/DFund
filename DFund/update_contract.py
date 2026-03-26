@@ -1,4 +1,6 @@
-;; Decentralized Crowdfunding Smart Contract
+import re
+
+contract_content = """;; Decentralized Crowdfunding Smart Contract
 ;; Milestone-Based Escrow and Community Voting
 
 ;; constants
@@ -328,3 +330,9 @@
 (define-read-only (get-campaign-claimed-amount (campaign-id uint))
   (get amount (default-to { amount: u0 } (map-get? campaign-claimed-amount { campaign-id: campaign-id })))
 )
+"""
+
+with open('./contracts/DFund.clar', 'w') as f:
+    f.write(contract_content)
+
+print("DFund.clar updated successfully.")

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { getCampaignById, Campaign } from '@/lib/api';
 import { calculateCreatorScore, getReputationBadge, calculateCampaignRisk } from '@/lib/reputation';
 import { useStore } from '@/store/useStore';
-import { withdrawFunds, claimRefund } from '@/lib/transactions';
+import { claimRefund, voteMilestone, claimMilestone } from '@/lib/transactions';
 import ContributeModal from '@/components/ContributeModal';
 import CreatorProfileModal from '@/components/CreatorProfileModal';
 import TrustBadge from '@/components/TrustBadge';
@@ -56,7 +56,6 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
   }
 
   const progress = (campaign.currentAmount / campaign.goalAmount) * 100;
-  const isSuccessful = campaign.currentAmount >= campaign.goalAmount;
   const isExpired = currentBlockHeight >= campaign.deadline;
 
   const address = userData?.profile?.stxAddress?.testnet || userData?.profile?.stxAddress?.mainnet;
@@ -64,8 +63,8 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
 
   // Dynamic Action Logic
   const canContribute = campaign.isActive && !isExpired;
-  const canWithdraw = isSuccessful && isExpired && isCreator && campaign.isActive;
-  const canRefund = !isSuccessful && isExpired && hasContributed && campaign.isActive;
+  // WithdrawFunds is deprecated via DFund update. Creator claims individual milestones instead.
+  const canRefund = isExpired && hasContributed && campaign.isActive;
 
   // Reputation Logic
   const score = calculateCreatorScore(creatorStats);
@@ -79,19 +78,9 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
     currentBlockHeight
   );
 
-  const handleWithdraw = async () => {
-    try {
-      if (confirm('Are you sure you want to withdraw the funds? This will close the campaign.')) {
-        await withdrawFunds(campaign.id);
-      }
-    } catch (e) {
-      toast.error('Withdrawal failed');
-    }
-  };
-
   const handleRefund = async () => {
     try {
-      if (confirm('Are you sure you want to claim your refund?')) {
+      if (confirm('Are you sure you want to claim your refund? This returns your remaining unspent share.')) {
         await claimRefund(campaign.id);
       }
     } catch (e) {
@@ -99,48 +88,160 @@ export default function CampaignDetailsPage({ params }: { params: { id: string }
     }
   };
 
+  const handleVote = async (milestoneId: number, approve: boolean) => {
+    try {
+      if (confirm(`Are you sure you want to ${approve ? 'approve' : 'reject'} this milestone?`)) {
+        await voteMilestone(campaign!.id, milestoneId, approve);
+      }
+    } catch (e) {
+      toast.error('Vote failed');
+    }
+  };
+
+  const handleClaimMilestone = async (milestoneId: number) => {
+    try {
+      if (confirm('Are you sure you want to claim this milestone?')) {
+        await claimMilestone(campaign!.id, milestoneId);
+      }
+    } catch (e) {
+      toast.error('Claim failed');
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
-      <div className="brutal-card bg-white mb-8">
+      <div className="brutal-card bg-white mb-8 border-4 border-black p-8 rounded-xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
         <h1 className="text-4xl font-black uppercase mb-4">{campaign.title}</h1>
-        <p className="text-gray-600 font-medium mb-6">{campaign.description}</p>
+        <p className="text-gray-600 font-medium mb-6 text-lg">{campaign.description}</p>
         <div className="flex flex-wrap gap-4 mb-8">
-          <div className="flex items-center gap-2 brutal-badge bg-yellow-400">
-             <Target className="w-4 h-4" />
+          <div className="flex items-center gap-2 border-2 border-black px-4 py-2 font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-yellow-400">
+             <Target className="w-5 h-5" />
              <span>Goal: {campaign.goalAmount} STX</span>
           </div>
-          <div className="flex items-center gap-2 brutal-badge bg-blue-400">
-             <Users className="w-4 h-4" />
-             <span>{campaign.creator.substring(0, 8)}...</span>
+          <div className="flex items-center gap-2 border-2 border-black px-4 py-2 font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-blue-400 cursor-pointer" onClick={() => setIsProfileModalOpen(true)}>
+             <Users className="w-5 h-5" />
+             <span>Creator: {campaign.creator.substring(0, 8)}...</span>
+          </div>
+          <div className="flex items-center gap-2 border-2 border-black px-4 py-2 font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-gray-200">
+             <Clock className="w-5 h-5" />
+             <span>Deadline: {campaign.deadline} Blk</span>
           </div>
         </div>
-        <div className="flex gap-4 mb-6">
+        
+        <div className="mb-8">
+          <div className="flex items-center justify-between text-sm font-black uppercase mb-2">
+            <span>Funding Progress: {Math.min(Math.round(progress), 100)}%</span>
+            <span>Raised: {campaign.currentAmount} STX</span>
+          </div>
+          <div className="h-6 w-full border-4 border-black bg-gray-100 overflow-hidden">
+            <div
+              className={cn('h-full border-r-4 border-black transition-all duration-1000', progress >= 100 ? 'bg-green-400' : 'bg-yellow-400')}
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-4 mb-8">
            <TrustBadge badge={badge} score={score} colorClass={badgeColor} textClass={badgeText} />
            <RiskIndicator riskLevel={risk} colorClass={riskColor} />
         </div>
-        <div className="flex gap-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
            {canContribute && (
-             <button onClick={() => setIsModalOpen(true)} className="brutal-btn brutal-btn-primary flex-1">
-               Contribute
-             </button>
-           )}
-           {canWithdraw && (
-             <button onClick={handleWithdraw} className="brutal-btn brutal-btn-primary flex-1 bg-green-500">
-               Withdraw Funds
+             <button onClick={() => setIsModalOpen(true)} className="brutal-btn brutal-btn-primary w-full py-4 text-xl">
+               Contribute Now
              </button>
            )}
            {canRefund && (
-             <button onClick={handleRefund} className="brutal-btn flex-1 bg-red-500">
-               Claim Refund
+             <button onClick={handleRefund} className="brutal-btn w-full py-4 text-xl bg-red-400 hover:bg-red-500">
+               Claim Refund (Withdraw Unspent)
              </button>
            )}
-           <button onClick={() => setIsProfileModalOpen(true)} className="brutal-btn flex-1">
-             Creator Profile
-             </button>
         </div>
       </div>
-      <ContributeModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} campaignId={campaign.id} isHighRisk={risk === 'High Risk'} />
-      <CreatorProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} stats={creatorStats || null} />
+
+      {campaign.milestones && campaign.milestones.length > 0 && (
+        <div className="brutal-card bg-gray-50 mb-8 border-t-8 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2">
+            <Target className="w-6 h-6 text-black" /> Project Milestones
+          </h2>
+          <p className="text-sm font-bold text-gray-500 mb-8">Funds are released incrementally based on community approval of each milestone.</p>
+          
+          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-transparent before:via-black before:to-transparent">
+            {campaign.milestones.map((m, idx) => {
+               const isPending = !m.isApproved && !m.isClaimed;
+               const threshold = campaign.goalAmount / 2;
+               const progressPct = Math.min((m.approvalAmount / threshold) * 100, 100) || 0;
+
+               return (
+                <div key={m.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                   <div className={cn("flex items-center justify-center w-10 h-10 rounded-full border-4 border-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] z-10", 
+                      m.isClaimed ? "bg-gray-400" : m.isApproved ? "bg-green-400" : "bg-blue-400")}>
+                     {m.isClaimed ? <CheckCircle2 className="w-5 h-5 text-white" /> : <Target className="w-5 h-5 text-white" />}
+                   </div>
+                   
+                   <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] brutal-card bg-white p-4">
+                      <div className="flex justify-between items-start mb-2">
+                         <h3 className="font-black uppercase text-lg">{m.description}</h3>
+                         <span className="font-black text-gray-500 uppercase px-2 py-1 border-2 border-black text-xs">{m.amount} STX</span>
+                      </div>
+                      
+                      {!m.isClaimed && (
+                        <div className="mb-4">
+                          <div className="flex justify-between text-xs font-bold uppercase mb-1">
+                             <span>Approval Target: 50%</span>
+                             <span>{m.isApproved ? '100' : Math.round(progressPct)}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-gray-200 rounded-full border-2 border-black overflow-hidden bg-white">
+                             <div className={cn("h-full transition-all", m.isApproved ? "bg-green-400" : "bg-blue-400")} style={{width: `${m.isApproved ? 100 : progressPct}%`}}></div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 mt-4">
+                         {isCreator && m.isApproved && !m.isClaimed && (
+                           <button onClick={() => handleClaimMilestone(m.id)} className="text-sm px-3 py-1 bg-green-400 font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform">
+                             Claim Funds
+                           </button>
+                         )}
+                         {hasContributed && isPending && !isCreator && progress >= 100 && (
+                           <>
+                             <button onClick={() => handleVote(m.id, true)} className="text-sm px-3 py-1 bg-blue-400 font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform">
+                               Approve
+                             </button>
+                             <button onClick={() => handleVote(m.id, false)} className="text-sm px-3 py-1 bg-red-400 text-white font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 transition-transform">
+                               Reject
+                             </button>
+                           </>
+                         )}
+                         {m.isClaimed && (
+                           <span className="text-sm font-black uppercase text-gray-400">Funds Transferred</span>
+                         )}
+                         {m.isApproved && !m.isClaimed && !isCreator && (
+                           <span className="text-sm font-black uppercase text-green-500">Milestone Approved</span>
+                         )}
+                      </div>
+                   </div>
+                </div>
+               )
+            })}
+          </div>
+        </div>
+      )}
+      
+      {campaign && (
+        <ContributeModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          campaignId={campaign.id} 
+          isHighRisk={risk === 'High Risk'}
+        />
+      )}
+      <CreatorProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+        stats={creatorStats || null} 
+      />
     </div>
   );
 }
